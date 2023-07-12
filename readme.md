@@ -4,6 +4,8 @@
 This package is a tiny wrapper for the [onlinecity/php-smpp](https://github.com/onlinecity/php-smpp) library.
 It provides a basic SMPP interface and implementation for the Laravel framework.
 
+This is forked from [franzose/laravel-smpp](https://github.com/franzose/laravel-smpp) package and this one use the [alexandr-mironov/php-smpp](https://github.com/alexandr-mironov/php-smpp) library.
+
 ## Installation
 You can install Laravel SMPP using Composer command:
 ```bash
