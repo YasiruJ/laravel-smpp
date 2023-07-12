@@ -5,12 +5,12 @@ namespace LaravelSmpp;
 use Exception;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Support\Arr;
-use Log;
-use SMPP;
-use SmppAddress;
-use SmppClient;
-use SmppException;
-use SocketTransport;
+use Illuminate\Support\Facades\Log;
+use smpp\SMPP;
+use smpp\Address;
+use smpp\Client;
+use smpp\exceptions\SmppException;
+use smpp\transport\Socket;
 
 /**
  * SMPP implementation of the SMS sending service.
@@ -29,7 +29,7 @@ class SmppService implements SmppServiceInterface
     /**
      * The SMPP Client implementation.
      *
-     * @var SmppClient
+     * @var Client
      */
     protected $smpp;
 
@@ -65,11 +65,11 @@ class SmppService implements SmppServiceInterface
         $this->providers = $config->get('laravel-smpp.providers', []);
         $this->catchables = $config->get('laravel-smpp.transport.catchables', []);
 
-        SmppClient::$csms_method = SmppClient::CSMS_8BIT_UDH;
-        SmppClient::$system_type = $config->get('laravel-smpp.client.system_type', 'default');
-        SmppClient::$sms_null_terminate_octetstrings = $config->get('laravel-smpp.client.null_terminate_octetstrings', false);
-        SocketTransport::$forceIpv4 = $config->get('laravel-smpp.transport.force_ipv4', true);
-        SocketTransport::$defaultDebug = $config->get('laravel-smpp.transport.debug', false);
+        Client::$csmsMethod = Client::CSMS_8BIT_UDH;
+        Client::$systemType = $config->get('laravel-smpp.client.system_type', 'default');
+        Client::$smsNullTerminateOctetStrings = $config->get('laravel-smpp.client.null_terminate_octetstrings', false);
+        Socket::$forceIpv4 = $config->get('laravel-smpp.transport.force_ipv4', true);
+        Socket::$defaultDebug = $config->get('laravel-smpp.transport.debug', false);
     }
 
     /**
@@ -133,18 +133,19 @@ class SmppService implements SmppServiceInterface
     /**
      * Setup SMPP transport and client.
      *
-     * @return SmppClient
+     * @return Client
      * @throws SmppException
      */
     protected function setupSmpp()
     {
         // Trying all available providers
         foreach ($this->providers as $provider => $config) {
-            $transport = new SocketTransport([$config['host']], $config['port']);
+            $transport = new Socket([$config['host']], $config['port']);
 
             try {
+               
                 $transport->setRecvTimeout($config['timeout']);
-                $smpp = new SmppClient($transport);
+                $smpp = new Client($transport);
                 $smpp->debug = $this->config->get('laravel-smpp.client.debug', false);
 
                 $transport->open();
@@ -172,7 +173,7 @@ class SmppService implements SmppServiceInterface
     /**
      * Return sender as SmppAddress.
      *
-     * @return SmppAddress
+     * @return Address
      */
     protected function getSender()
     {
@@ -184,7 +185,7 @@ class SmppService implements SmppServiceInterface
      *
      * @param $phone
      *
-     * @return SmppAddress
+     * @return Address
      */
     protected function getRecipient($phone)
     {
@@ -196,7 +197,7 @@ class SmppService implements SmppServiceInterface
      *
      * @param int|null $phone
      *
-     * @return SmppAddress
+     * @return Address
      */
     protected function getSmppAddress($phone = null)
     {
@@ -207,7 +208,7 @@ class SmppService implements SmppServiceInterface
             $prefix = 'destination';
         }
 
-        return new SmppAddress(
+        return new Address(
             $phone,
             hexdec($this->getConfig(sprintf('%s_ton', $prefix))),
             hexdec($this->getConfig(sprintf('%s_npi', $prefix)))
@@ -217,13 +218,13 @@ class SmppService implements SmppServiceInterface
     /**
      * Send SMS via SMPP.
      *
-     * @param SmppAddress $sender
+     * @param Address $sender
      * @param int $recipient
      * @param string $message
      *
      * @return string
      */
-    protected function sendSms(SmppAddress $sender, $recipient, $message)
+    protected function sendSms(Address $sender, $recipient, $message)
     {
         $message = mb_convert_encoding($message, 'UCS-2', 'utf8');
 
